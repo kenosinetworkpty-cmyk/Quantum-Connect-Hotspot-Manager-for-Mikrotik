@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user who connects to the free Wi-Fi hotspot.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The user's first name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The user's verified mobile number."
+        },
+        "lastLogin": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the user's last login."
+        },
+        "dailyUsageTime": {
+          "type": "number",
+          "description": "Total usage time in minutes for the current day."
+        },
+        "outletId": {
+          "type": "string",
+          "description": "The ID of the outlet where the user connected."
+        },
+        "optedForCallback": {
+          "type": "boolean",
+          "description": "Whether the user opted in for a callback."
+        }
+      },
+      "required": ["name", "phoneNumber", "lastLogin", "dailyUsageTime", "outletId", "optedForCallback"]
+    },
+    "Outlet": {
+      "title": "Outlet",
+      "description": "A spaza shop or location providing the free Wi-Fi.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the outlet."
+        },
+        "location": {
+          "type": "string",
+          "description": "Physical location or address."
+        },
+        "peakUsageStats": {
+          "type": "object",
+          "description": "Statistics on peak usage times."
+        }
+      },
+      "required": ["name", "location"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A sales lead generated from the captive portal.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The lead's name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The lead's phone number."
+        },
+        "outlet": {
+          "type": "string",
+          "description": "The outlet where the lead was generated."
+        },
+        "preferredCallbackTime": {
+          "type": "string",
+          "description": "Preferred time for a callback (e.g., Morning, Afternoon, Evening)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "contacted", "converted"],
+          "description": "The current status of the lead."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the lead was created."
+        }
+      },
+      "required": ["name", "phoneNumber", "outlet", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles and daily usage data."
+    },
+    "/outlets/{outletId}": {
+      "schema": {
+        "$ref": "#/entities/Outlet"
+      },
+      "description": "Stores outlet information."
+    },
+    "/leads/{leadId}": {
+      "schema": {
+        "$ref": "#/entities/Lead"
+      },
+      "description": "Stores sales leads for fibre and VoIP."
+    }
+  }
+}

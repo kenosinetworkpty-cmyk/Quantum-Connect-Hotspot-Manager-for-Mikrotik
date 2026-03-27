@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (matches auth.uid)
+    // Fields:
+    //   - name: string (required)
+    //   - phoneNumber: string (required)
+    //   - lastLogin: timestamp (required)
+    //   - dailyUsageTime: number (required)
+    //   - outletId: string (required)
+    //   - optedForCallback: boolean (required)
+    //
+    // Collection: outlets
+    // Document ID: outletId
+    // Fields:
+    //   - name: string (required)
+    //   - location: string (required)
+    //   - peakUsageStats: map (optional)
+    //
+    // Collection: leads
+    // Document ID: leadId
+    // Fields:
+    //   - name: string (required)
+    //   - phoneNumber: string (required)
+    //   - outlet: string (required)
+    //   - preferredCallbackTime: string (optional)
+    //   - status: string (required, enum: ['new', 'contacted', 'converted'])
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Domain Validators
+    function isValidUser() {
+      return hasOnlyAllowedFields(['name', 'phoneNumber', 'lastLogin', 'dailyUsageTime', 'outletId', 'optedForCallback']) &&
+             hasRequiredFields(['name', 'phoneNumber', 'lastLogin', 'dailyUsageTime', 'outletId', 'optedForCallback']) &&
+             request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
+             request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() > 0 && request.resource.data.phoneNumber.size() <= 20 &&
+             request.resource.data.lastLogin is timestamp &&
+             request.resource.data.dailyUsageTime is number && request.resource.data.dailyUsageTime >= 0 &&
+             request.resource.data.outletId is string && request.resource.data.outletId.size() > 0 && request.resource.data.outletId.size() <= 100 &&
+             request.resource.data.optedForCallback is bool;
+    }
+
+    function isValidLead() {
+      return hasOnlyAllowedFields(['name', 'phoneNumber', 'outlet', 'preferredCallbackTime', 'status', 'createdAt']) &&
+             hasRequiredFields(['name', 'phoneNumber', 'outlet', 'status', 'createdAt']) &&
+             request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
+             request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() > 0 && request.resource.data.phoneNumber.size() <= 20 &&
+             request.resource.data.outlet is string && request.resource.data.outlet.size() > 0 && request.resource.data.outlet.size() <= 100 &&
+             (!('preferredCallbackTime' in request.resource.data) || (request.resource.data.preferredCallbackTime is string && request.resource.data.preferredCallbackTime.size() <= 50)) &&
+             request.resource.data.status in ['new', 'contacted', 'converted'] &&
+             request.resource.data.createdAt is timestamp;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser();
+      allow update: if isOwner(userId) && isValidUser();
+      allow delete: if false; // Users cannot delete their own profile
+    }
+
+    match /outlets/{outletId} {
+      allow read: if true; // Outlets are public to allow captive portal to display name
+      allow write: if false; // Only admins can modify outlets (admin SDK)
+    }
+
+    match /leads/{leadId} {
+      allow read: if false; // Only admins can read leads (admin SDK)
+      allow create: if isAuthenticated() && isValidLead() && request.resource.data.status == 'new';
+      allow update, delete: if false; // Only admins can update/delete leads
+    }
+    
+    match /callbacks/{callbackId} {
+      allow read: if false;
+      allow create: if true; // Anyone can request a callback (even if session expired and unauthenticated)
+      allow update, delete: if false;
+    }
+  }
+}
